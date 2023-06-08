@@ -2,6 +2,7 @@ use anyhow::Result;
 #[allow(unused)]
 use log::{debug, error, info, log, warn};
 use not_so_human_panic::setup_panic;
+#[allow(unused)]
 use smol::{prelude::*, Async};
 use teloxide::{prelude::*, utils::command::BotCommands};
 
