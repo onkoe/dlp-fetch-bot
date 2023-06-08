@@ -21,6 +21,7 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
+      - uses: Swatinem/rust-cache@v2
 
       - uses: actions-rs/cargo@v1
         with:
@@ -37,6 +38,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -53,6 +55,7 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
@@ -69,6 +72,7 @@ jobs:
           toolchain: stable
           override: true
           components: clippy
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
@@ -84,9 +88,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
 
       - name: Build for Linux x86_64
         uses: actions-rs/cargo@v1
@@ -119,7 +121,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with: 
           name: linux-artifact
-          path: $GITHUB_WORKSPACE/target/release/dlp-fetch-bot
+          path: /home/runner/work/dlp-fetch-bot/dlp-fetch-bot/target/release/dlp-fetch-bot
           retention-days: 31
 
 
