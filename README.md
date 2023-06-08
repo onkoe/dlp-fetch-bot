@@ -27,7 +27,7 @@ If you're looking for a download for your system, you can either compile it your
 
 ## Contributions
 
-If you'd like to fix problems or add new functionality to the bot, please follow the contributors guide! **TODO**
+If you'd like to fix problems or add new functionality to the bot, please follow [the contributors guide](./CONTRIBUTORS.md)!
 
 ## Configuration
 
