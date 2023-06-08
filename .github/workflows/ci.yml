@@ -1,0 +1,128 @@
+on: [push, pull_request]
+
+name: Continuous integration
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - beta
+          - nightly
+          # - 1.48.0  # MSRV..? 
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --all-features
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --workspace
+        
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: clippy
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --workspace --all-targets -- -D warnings
+    
+  build-linux:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build for Linux x86_64
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+#      - name: Build for Linux rv64
+#        uses: actions-rs/cargo@v1
+#        with: 
+#          use-cross: true
+#          command: build
+#          args: --target riscv64gc-unknown-linux-gnu --release
+
+#      - name: Build for Linux aarch64
+#        uses: actions-rs/cargo@v1
+#        with:
+#          use-cross: true
+#          command: build
+#          args: --target aarch64-unknown-linux-gnu --release
+
+#      - name: Build for Linux i686
+#        uses: actions-rs/cargo@v1
+#        with:
+#          use-cross: true
+#          command: build
+#          args: --target i686-unknown-linux-gnu --release
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with: 
+          name: linux-artifact
+          path: $GITHUB_WORKSPACE/target/release/dlp-fetch-bot
+          retention-days: 31
+
+
+  # build-windows: ... 
+
+  # build-mac: ...
