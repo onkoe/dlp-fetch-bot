@@ -77,15 +77,13 @@ async fn try_update_yt_dlp() {
 #[derive(BotCommands, Clone)]
 #[command(
     rename_rule = "lowercase",
-    description = "These commands are supported:"
+    description = "The following commands are supported by this bot:"
 )]
 enum Command {
-    #[command(description = "display this text.")]
+    #[command(description = "display this help text.")]
     Help,
-    #[command(description = "handle a username.")]
-    Username(String),
-    #[command(description = "handle a username and an age.", parse_with = "split")]
-    UsernameAndAge { username: String, age: u8 },
+    #[command(description = "download a given link with yt-dlp.")]
+    Download(String),
 }
 
 async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
@@ -94,16 +92,9 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
                 .await?
         }
-        Command::Username(username) => {
-            bot.send_message(msg.chat.id, format!("Your username is @{username}."))
+        Command::Download(video) => {
+            bot.send_message(msg.chat.id, format!("The given video link was: `{video}`!"))
                 .await?
-        }
-        Command::UsernameAndAge { username, age } => {
-            bot.send_message(
-                msg.chat.id,
-                format!("Your username is @{username} and age is {age}."),
-            )
-            .await?
         }
     };
 
