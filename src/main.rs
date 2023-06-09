@@ -1,17 +1,27 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 #[allow(unused)]
 use log::{debug, error, info, log, warn};
 use not_so_human_panic::setup_panic;
+use std::env;
 use teloxide::{prelude::*, utils::command::BotCommands};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     setup_panic!();
-    pretty_env_logger::init();
+
+    // Setup logging...
+
+    // If we're in debug mode, let's have debug logs enabled!
+    let logging_level = match cfg!(debug_assertions) {
+        true => log::Level::Debug,
+        false => log::Level::Info,
+    };
+
+    simple_logger::init_with_level(logging_level)?;
     info!("Welcome to dlp-fetch-bot!");
 
-    // Create the bot!
-    // Please ensure that TELOXIDE_TOKEN and TELOXIDE_PROXY are both set env variables.
+    #[cfg(debug_assertions)]
+    info!("Debug logging is enabled.");
 
     let bot = Bot::from_env();
 
