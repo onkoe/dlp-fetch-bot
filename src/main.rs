@@ -23,6 +23,19 @@ async fn main() -> Result<(), anyhow::Error> {
     #[cfg(debug_assertions)]
     info!("Debug logging is enabled.");
 
+    // Check if TELOXIDE_TOKEN and TELOXIDE_PROXY are both set env variables.
+    if env::var("TELOXIDE_TOKEN").is_err() {
+        error!("This bot requires an environment variable, TELOXIDE_TOKEN, to be set in order to run. \
+         Please see Telegram's documentation for more information: \
+         https://core.telegram.org/bots/api#authorizing-your-bot");
+        bail!("No token detected.");
+    }
+
+    if env::var("TELOXIDE_PROXY").is_err() {
+        info!("No proxy was detected.");
+    }
+
+    // Create the bot!
     let bot = Bot::from_env();
 
     Command::repl(bot, answer).await;
