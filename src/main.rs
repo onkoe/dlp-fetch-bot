@@ -4,6 +4,7 @@ use log::{debug, error, info, log, warn};
 use not_so_human_panic::setup_panic;
 use std::env;
 use teloxide::{prelude::*, utils::command::BotCommands};
+use which::which;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -35,6 +36,9 @@ async fn main() -> Result<(), anyhow::Error> {
         info!("No proxy was detected.");
     }
 
+    // Test for presence of yt-dlp
+    let _yt_dlp_location = check_for_yt_dlp().await?;
+
     // Create the bot!
     let bot = Bot::from_env();
 
@@ -44,7 +48,7 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 #[allow(unused)]
-async fn download() -> Result<std::fs::File, ()> {
+async fn download() -> Result<std::fs::File, anyhow::Error> {
     // attempt download
 
     // if we get a file, check if it fits file limits: 10mb photos, 50mb others
@@ -57,21 +61,31 @@ async fn download() -> Result<std::fs::File, ()> {
     // - idk probably some others. magic wormhole would be a pain but works no matter the size /shrug
 
     // send the user the link
-    Err(())
+    Ok(std::fs::File::open("path")?)
 }
 
-#[allow(unused)]
-async fn try_update_yt_dlp() {
-    // check if we have yt-dlp on the system (pkg-config?)
+async fn check_for_yt_dlp() -> anyhow::Result<std::path::PathBuf> {
+    // check if we have yt-dlp on the system
+    let potential_dlp_path = which("yt-dlp");
 
-    // if not, try to install a local copy from github using architecture
-    // match arch {
-    // x64 => https://github.com/yt-dlp.../x64,
-    // ...
-    // _ => {return Err("Couldn't get a yt-dlp package for your computer!")}
-    // }
-
-    // if we still can't get it working, return some error...
+    match potential_dlp_path {
+        Ok(found_path) => {
+            info!(
+                "yt-dlp was located on your system! It's at: {}",
+                found_path.display()
+            );
+            Ok(found_path)
+        }
+        Err(error) => {
+            error!(
+                "yt-dlp was not detected on your system! \
+            Please install it using your package manager: \
+            https://github.com/yt-dlp/yt-dlp/wiki/Installation#third-party-package-managers"
+            );
+            bail!("Required binary not found: {}.", error.to_string());
+            // let's try to install it for them
+        }
+    }
 }
 
 #[derive(BotCommands, Clone)]
