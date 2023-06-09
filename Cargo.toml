@@ -12,3 +12,4 @@ log = "0.4"
 pretty_env_logger = "0.5"
 anyhow = "1.0.71"
 not-so-human-panic = "1.1.5"
+tokio = { version = "1.28.2", features = ["rt", "macros", "rt-multi-thread"] }

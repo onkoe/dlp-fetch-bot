@@ -2,25 +2,22 @@ use anyhow::Result;
 #[allow(unused)]
 use log::{debug, error, info, log, warn};
 use not_so_human_panic::setup_panic;
-#[allow(unused)]
-use smol::{prelude::*, Async};
 use teloxide::{prelude::*, utils::command::BotCommands};
 
-fn main() -> Result<(), anyhow::Error> {
-    smol::block_on(async {
-        setup_panic!();
-        pretty_env_logger::init();
-        info!("Welcome to dlp-fetch-bot!");
+#[tokio::main]
+async fn main() -> Result<(), anyhow::Error> {
+    setup_panic!();
+    pretty_env_logger::init();
+    info!("Welcome to dlp-fetch-bot!");
 
-        // Create the bot!
-        // Please ensure that TELOXIDE_TOKEN and TELOXIDE_PROXY are both set env variables.
+    // Create the bot!
+    // Please ensure that TELOXIDE_TOKEN and TELOXIDE_PROXY are both set env variables.
 
-        let bot = Bot::from_env();
+    let bot = Bot::from_env();
 
-        Command::repl(bot, answer).await;
+    Command::repl(bot, answer).await;
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[allow(unused)]
