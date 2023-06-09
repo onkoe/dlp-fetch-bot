@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use log::{debug, error, info, warn};
 use not_so_human_panic::setup_panic;
-use std::{env, process, path::PathBuf};
+use std::{env, path::PathBuf, process};
 use teloxide::{prelude::*, utils::command::BotCommands};
 use url::Url;
 use which::which;
@@ -62,15 +62,13 @@ async fn download(url: Url) -> Result<std::fs::File, anyhow::Error> {
         .await;
 
     if let Ok(output) = video {
-        output.into_single_video().unwrap().
+        //output.into_single_video().unwrap().
 
         info!(
             "YeAAAAAAHH Downloaded output: {}",
             output.into_single_video().unwrap().title
         );
     }
-
-
 
     // if we get a file, check if it fits file limits: 10mb photos, 50mb others
 
@@ -104,7 +102,6 @@ async fn check_for_yt_dlp() -> anyhow::Result<std::path::PathBuf> {
             https://github.com/yt-dlp/yt-dlp/wiki/Installation#third-party-package-managers"
             );
             bail!("Required binary not found: {}.", error.to_string());
-            // let's try to install it for them
         }
     }
 }
