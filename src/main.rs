@@ -1,14 +1,18 @@
 use anyhow::{bail, Result};
-#[allow(unused)]
-use log::{debug, error, info, log, warn};
+use log::{debug, error, info, warn};
 use not_so_human_panic::setup_panic;
-use std::env;
+use std::{env, process, path::PathBuf};
 use teloxide::{prelude::*, utils::command::BotCommands};
+use url::Url;
 use which::which;
+use youtube_dl::{YoutubeDl, YoutubeDlOutput};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     setup_panic!();
+
+    // Parse command-line arguments
+    // TODO
 
     // Setup logging...
 
@@ -22,7 +26,7 @@ async fn main() -> Result<(), anyhow::Error> {
     info!("Welcome to dlp-fetch-bot!");
 
     #[cfg(debug_assertions)]
-    info!("Debug logging is enabled.");
+    debug!("Debug logging is enabled. 🧯 💨");
 
     // Check if TELOXIDE_TOKEN and TELOXIDE_PROXY are both set env variables.
     if env::var("TELOXIDE_TOKEN").is_err() {
@@ -48,8 +52,25 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 #[allow(unused)]
-async fn download() -> Result<std::fs::File, anyhow::Error> {
+async fn download(url: Url) -> Result<std::fs::File, anyhow::Error> {
     // attempt download
+    process::Command::new("yt-dlp");
+
+    let video = YoutubeDl::new(url)
+        .socket_timeout("30") // seconds
+        .run_async()
+        .await;
+
+    if let Ok(output) = video {
+        output.into_single_video().unwrap().
+
+        info!(
+            "YeAAAAAAHH Downloaded output: {}",
+            output.into_single_video().unwrap().title
+        );
+    }
+
+
 
     // if we get a file, check if it fits file limits: 10mb photos, 50mb others
 
@@ -101,14 +122,55 @@ enum Command {
 }
 
 async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
+    // get message author
+    let author: String = msg
+        .from()
+        .map_or("Unknown Author".to_owned(), |guy| guy.full_name());
+
     match cmd {
         Command::Help => {
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
-                .await?
+                .await?;
         }
-        Command::Download(video) => {
+        Command::Download(mut video) => {
+            // If the video doesn't have a scheme, add it
+            if !video.contains("https://") {
+                video = format!("https://{}", video);
+            }
+
+            // Check video URL validity
+            match Url::parse(&video) {
+                Ok(valid_url) => {
+                    info!(
+                        "User `{}` submitted a valid video URL: `{}`",
+                        author,
+                        valid_url.as_str()
+                    );
+
+                    bot.send_message(msg.chat.id, "Downloading video...")
+                        .await?;
+
+                    let downloaded_video = download(valid_url);
+                }
+                Err(error) => {
+                    warn!(
+                        "Wasn't able to parse user `{}`'s given URL, `{video}`. Parse error: {error}",
+                        author
+                    );
+
+                    bot.send_message(
+                        msg.chat.id,
+                        "The URL you provided has an unexpected format, so no content was available for download. \
+                        Please check that your URL is what you meant to send. \
+                        You can also run /help for other commands and information.",
+                    )
+                    .await?;
+                }
+            }
+
+            #[cfg(debug_assertions)]
             bot.send_message(msg.chat.id, format!("The given video link was: `{video}`!"))
-                .await?
+                .await?;
         }
     };
 

@@ -14,3 +14,7 @@ not-so-human-panic = "1.1.5"
 tokio = { version = "1.28.2", features = ["rt", "macros", "rt-multi-thread"] }
 simple_logger = "4.1.0"
 which = "4.4.0"
+reqwest = { version = "0.11", features = ["rustls"], default-features = false }
+url = "2.4.0"
+youtube_dl = { version = "0.8.1", features = ["tokio", "rustls-tls"], default-features = false }
+dirs = "5.0.1"
