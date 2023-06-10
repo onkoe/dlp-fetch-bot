@@ -1,8 +1,8 @@
 use anyhow::{bail, Context, Result};
-use file_format::{FileFormat, Kind};
 use log::{debug, error, info, warn};
+use mime_guess::Mime;
 use not_so_human_panic::setup_panic;
-use std::{env, fs::File};
+use std::env;
 use teloxide::{prelude::*, types::InputFile, utils::command::BotCommands};
 use url::Url;
 use which::which;
@@ -57,9 +57,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
 struct DownloadedFile {
     path: String,
+    #[allow(unused)] // fields are used
     file: youtube_dl::SingleVideo,
     filesize: u64,
-    filename: String,
+    filetype: Mime,
 }
 
 /// Downloads a given yt-dlp-compatible URL. Returns either some error,
@@ -99,7 +100,9 @@ async fn download(url: Url) -> Result<DownloadedFile, anyhow::Error> {
         path: path.clone(),
         file: video,
         filesize: std::fs::metadata(&path)?.len(),
-        filename,
+        filetype: mime_guess::from_path(path)
+            .first()
+            .context("a file should have a filetype")?,
     })
 }
 
@@ -172,28 +175,25 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
 
                     match download(valid_url.clone()).await {
                         Ok(dl) => {
-                            debug!("{}", FileFormat::from_file(&dl.path)?.media_type());
-                            let dl_format = dbg!(FileFormat::from_file(dbg!(&dl.path))?.kind());
-
                             debug!("Downloaded file size is {}", dl.filesize);
                             // [TODO: make a function for the following..? needs bot.send...() though]
 
                             // if we get a file, check if it fits file limits: 10mb photos, 50mb others
                             // TODO: check if Telegram uses ISO or SI units
-                            if dl_format == Kind::Image {
+                            if dl.filetype.type_() == mime::IMAGE {
                                 debug!("sending image");
                                 bot.send_photo(msg.chat.id, InputFile::file(&dl.path))
                                     .await?;
                             } else if dl.filesize < 52428800 {
                                 // file's in bounds, send it using Telegram API
 
-                                match dl_format {
-                                    Kind::Video => {
+                                match dl.filetype.type_() {
+                                    mime::IMAGE => {
                                         debug!("sending video");
                                         bot.send_video(msg.chat.id, InputFile::file(&dl.path))
                                             .await?;
                                     }
-                                    Kind::Audio => {
+                                    mime::AUDIO => {
                                         debug!("sending audio");
                                         bot.send_audio(msg.chat.id, InputFile::file(&dl.path))
                                             .await?;
