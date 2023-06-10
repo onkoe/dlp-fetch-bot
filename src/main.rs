@@ -1,8 +1,9 @@
 use anyhow::{bail, Context, Result};
+use file_format::{FileFormat, Kind};
 use log::{debug, error, info, warn};
 use not_so_human_panic::setup_panic;
-use std::env;
-use teloxide::{prelude::*, utils::command::BotCommands};
+use std::{env, fs::File};
+use teloxide::{prelude::*, types::InputFile, utils::command::BotCommands};
 use url::Url;
 use which::which;
 use youtube_dl::YoutubeDl;
@@ -14,6 +15,7 @@ async fn main() -> Result<(), anyhow::Error> {
     // TODO: Parse command-line arguments
     // arg: save location
     // arg: yt-dlp socket timeout ("Time to wait before giving up, in seconds")
+    // arg: log to file?
 
     // Setup logging...
     // TODO: setup logging to a file!
@@ -53,35 +55,56 @@ async fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-async fn download(url: Url) -> Result<std::fs::File, anyhow::Error> {
+struct DownloadedFile {
+    path: String,
+    file: youtube_dl::SingleVideo,
+    filesize: u64,
+    filename: String,
+}
+
+/// Downloads a given yt-dlp-compatible URL. Returns either some error,
+/// or a File that's usable immediately.
+async fn download(url: Url) -> Result<DownloadedFile, anyhow::Error> {
+    // TODO: custom error type to tell user if something went wrong
+    // (kinda don't want to use yt-dlp's exact error because of shell nonsense)
+
     // attempt download
 
     let video = YoutubeDl::new(url)
         .socket_timeout("15") // seconds
         .download(true)
-        .output_directory("./dlp-downloads/")
+        .output_directory("dlp-downloads/")
         .output_template("%(id)s.%(ext)s")
         .run_async()
         .await?
-        .into_single_video() // TODO: support playlists
+        .into_single_video() // TODO: support playlists (create folder for all new files in one command. for each file, upload that mf)
         .context("a downloaded video should exist")?;
 
     info!("Download successful! Checking filename...");
 
     // Get a file name using an expected extension, if it has one
-    let filename: String = match video.ext {
+    let filename: String = match video.ext.clone() {
         Some(ext) => {
             format!("{}.{}", video.id, ext)
         }
-        None => video.id,
+        None => video.id.clone(),
     };
 
     debug!("Downloaded file name should be: {filename}");
 
-    let video_file = std::fs::File::open(format!("./dlp-downloads/{filename}"))?;
-    Ok(video_file)
+    // TODO: use dynamic path
+    let path = format!("dlp-downloads/{filename}");
+
+    Ok(DownloadedFile {
+        path: path.clone(),
+        file: video,
+        filesize: std::fs::metadata(&path)?.len(),
+        filename,
+    })
 }
 
+/// Scans the system for a `yt-dlp` binary.
+/// If it's not found, then the program exits.
 async fn check_for_yt_dlp() -> anyhow::Result<std::path::PathBuf> {
     // check if we have yt-dlp on the system
     let potential_dlp_path = which("yt-dlp");
@@ -117,6 +140,7 @@ enum Command {
     Download(String),
 }
 
+/// Replies to any given command with a certain operation.
 async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
     // get message author
     let author: String = msg
@@ -146,20 +170,58 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
                     bot.send_message(msg.chat.id, "Downloading video...")
                         .await?;
 
-                    let _downloaded_video = download(valid_url).await; // TODO: use
+                    match download(valid_url.clone()).await {
+                        Ok(dl) => {
+                            debug!("{}", FileFormat::from_file(&dl.path)?.media_type());
+                            let dl_format = dbg!(FileFormat::from_file(dbg!(&dl.path))?.kind());
 
-                    // [TODO: make a function for the following..? needs bot.send...() though]
+                            debug!("Downloaded file size is {}", dl.filesize);
+                            // [TODO: make a function for the following..? needs bot.send...() though]
 
-                    // if we get a file, check if it fits file limits: 10mb photos, 50mb others
+                            // if we get a file, check if it fits file limits: 10mb photos, 50mb others
+                            // TODO: check if Telegram uses ISO or SI units
+                            if dl_format == Kind::Image {
+                                debug!("sending image");
+                                bot.send_photo(msg.chat.id, InputFile::file(&dl.path))
+                                    .await?;
+                            } else if dl.filesize < 52428800 {
+                                // file's in bounds, send it using Telegram API
 
-                    // if file is in bounds, send it using Telegram API
+                                match dl_format {
+                                    Kind::Video => {
+                                        debug!("sending video");
+                                        bot.send_video(msg.chat.id, InputFile::file(&dl.path))
+                                            .await?;
+                                    }
+                                    Kind::Audio => {
+                                        debug!("sending audio");
+                                        bot.send_audio(msg.chat.id, InputFile::file(&dl.path))
+                                            .await?;
+                                    }
+                                    other => {
+                                        debug!("sending {other:#?}");
+                                        bot.send_document(msg.chat.id, InputFile::file(&dl.path))
+                                            .await?;
+                                    }
+                                }
+                            } else {
+                                debug!("uhhh otherwise..!");
+                                // otherwise, upload to some site..?
+                                // - https://www.keep.sh: easy https 500mb upload. no account required
+                                // - https://temp.sh: easy https _4gb_ upload. no account required
+                                // - idk probably some others. magic wormhole would be a pain but works no matter the size /shrug
+                            }
 
-                    // otherwise, upload to some site..?
-                    // - https://www.keep.sh: easy https 500mb upload. no account required
-                    // - https://temp.sh: easy https _4gb_ upload. no account required
-                    // - idk probably some others. magic wormhole would be a pain but works no matter the size /shrug
+                            // send the user the link
+                        }
+                        Err(dl_error) => {
+                            warn!(
+                                "The video that user `{author}` submitted failed to download: {dl_error}"
+                            );
 
-                    // send the user the link
+                            bot.send_message(msg.chat.id, format!("The video link you gave, {valid_url}, failed to download. Please try again with another link.")).await?;
+                        }
+                    }
                 }
                 Err(error) => {
                     warn!(

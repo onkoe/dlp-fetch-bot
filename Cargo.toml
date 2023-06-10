@@ -16,3 +16,4 @@ which = "4.4.0"
 url = "2.4.0"
 youtube_dl = { version = "0.8.1", features = ["tokio", "rustls-tls"], default-features = false }
 dirs = "5.0.1"
+file-format = "0.17.3"
