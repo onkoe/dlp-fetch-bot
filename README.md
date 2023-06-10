@@ -35,4 +35,12 @@ There are currently no configuration values for the bot.
 
 ## License
 
-This project is licensed under the WTFPL. See the [LICENSE file](./LICENSE) for details.
+This project is licensed under the WTFPL. See the [LICENSE file](./LICENSE) for details. Speaking on warranty, you should assume the following statement holds true for all source code files included here:
+
+```
+This program is free software. It comes without any warranty, to
+the extent permitted by applicable law. You can redistribute it
+and/or modify it under the terms of the Do What The Fuck You Want
+To Public License, Version 2, as published by Sam Hocevar. See
+<http://www.wtfpl.net/> for more details.
+```
