@@ -11,12 +11,12 @@ use youtube_dl::YoutubeDl;
 async fn main() -> Result<(), anyhow::Error> {
     setup_panic!();
 
-    // Parse command-line arguments
-    // TODO
+    // TODO: Parse command-line arguments
     // arg: save location
     // arg: yt-dlp socket timeout ("Time to wait before giving up, in seconds")
 
     // Setup logging...
+    // TODO: setup logging to a file!
 
     // If we're in debug mode, let's have debug logs enabled!
     let logging_level = match cfg!(debug_assertions) {
@@ -53,7 +53,6 @@ async fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-#[allow(unused)]
 async fn download(url: Url) -> Result<std::fs::File, anyhow::Error> {
     // attempt download
 
