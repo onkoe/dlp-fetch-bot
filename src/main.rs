@@ -187,8 +187,8 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
                             } else if dl.filesize < 52428800 {
                                 // file's in bounds, send it using Telegram API
 
-                                match dl.filetype.type_() {
-                                    mime::IMAGE => {
+                                match dbg!(dl.filetype.type_()) {
+                                    mime::VIDEO => {
                                         debug!("sending video");
                                         bot.send_video(msg.chat.id, InputFile::file(&dl.path))
                                             .await?;
@@ -199,7 +199,7 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
                                             .await?;
                                     }
                                     other => {
-                                        debug!("sending {other:#?}");
+                                        debug!("sending {other}");
                                         bot.send_document(msg.chat.id, InputFile::file(&dl.path))
                                             .await?;
                                     }
