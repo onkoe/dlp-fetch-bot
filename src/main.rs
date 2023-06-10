@@ -1,11 +1,11 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use log::{debug, error, info, warn};
 use not_so_human_panic::setup_panic;
-use std::{env, path::PathBuf, process};
+use std::env;
 use teloxide::{prelude::*, utils::command::BotCommands};
 use url::Url;
 use which::which;
-use youtube_dl::{YoutubeDl, YoutubeDlOutput};
+use youtube_dl::YoutubeDl;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -13,6 +13,8 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Parse command-line arguments
     // TODO
+    // arg: save location
+    // arg: yt-dlp socket timeout ("Time to wait before giving up, in seconds")
 
     // Setup logging...
 
@@ -54,33 +56,31 @@ async fn main() -> Result<(), anyhow::Error> {
 #[allow(unused)]
 async fn download(url: Url) -> Result<std::fs::File, anyhow::Error> {
     // attempt download
-    process::Command::new("yt-dlp");
 
     let video = YoutubeDl::new(url)
-        .socket_timeout("30") // seconds
+        .socket_timeout("15") // seconds
+        .download(true)
+        .output_directory("./dlp-downloads/")
+        .output_template("%(id)s.%(ext)s")
         .run_async()
-        .await;
+        .await?
+        .into_single_video() // TODO: support playlists
+        .context("a downloaded video should exist")?;
 
-    if let Ok(output) = video {
-        //output.into_single_video().unwrap().
+    info!("Download successful! Checking filename...");
 
-        info!(
-            "YeAAAAAAHH Downloaded output: {}",
-            output.into_single_video().unwrap().title
-        );
-    }
+    // Get a file name using an expected extension, if it has one
+    let filename: String = match video.ext {
+        Some(ext) => {
+            format!("{}.{}", video.id, ext)
+        }
+        None => video.id,
+    };
 
-    // if we get a file, check if it fits file limits: 10mb photos, 50mb others
+    debug!("Downloaded file name should be: {filename}");
 
-    // if file is in bounds, send it using Telegram API
-
-    // otherwise, upload to some site..?
-    // - https://www.keep.sh: easy https 500mb upload. no account required
-    // - https://temp.sh: easy https _4gb_ upload. no account required
-    // - idk probably some others. magic wormhole would be a pain but works no matter the size /shrug
-
-    // send the user the link
-    Ok(std::fs::File::open("path")?)
+    let video_file = std::fs::File::open(format!("./dlp-downloads/{filename}"))?;
+    Ok(video_file)
 }
 
 async fn check_for_yt_dlp() -> anyhow::Result<std::path::PathBuf> {
@@ -97,7 +97,7 @@ async fn check_for_yt_dlp() -> anyhow::Result<std::path::PathBuf> {
         }
         Err(error) => {
             error!(
-                "yt-dlp was not detected on your system! \
+                "Failed to install yt-dlp to your system! \
             Please install it using your package manager: \
             https://github.com/yt-dlp/yt-dlp/wiki/Installation#third-party-package-managers"
             );
@@ -129,14 +129,14 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
                 .await?;
         }
-        Command::Download(mut video) => {
+        Command::Download(mut link) => {
             // If the video doesn't have a scheme, add it
-            if !video.contains("https://") {
-                video = format!("https://{}", video);
+            if !link.contains("https://") && !link.contains("http://") {
+                link = format!("https://{}", link);
             }
 
             // Check video URL validity
-            match Url::parse(&video) {
+            match Url::parse(&link) {
                 Ok(valid_url) => {
                     info!(
                         "User `{}` submitted a valid video URL: `{}`",
@@ -147,11 +147,24 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
                     bot.send_message(msg.chat.id, "Downloading video...")
                         .await?;
 
-                    let downloaded_video = download(valid_url);
+                    let _downloaded_video = download(valid_url).await; // TODO: use
+
+                    // [TODO: make a function for the following..? needs bot.send...() though]
+
+                    // if we get a file, check if it fits file limits: 10mb photos, 50mb others
+
+                    // if file is in bounds, send it using Telegram API
+
+                    // otherwise, upload to some site..?
+                    // - https://www.keep.sh: easy https 500mb upload. no account required
+                    // - https://temp.sh: easy https _4gb_ upload. no account required
+                    // - idk probably some others. magic wormhole would be a pain but works no matter the size /shrug
+
+                    // send the user the link
                 }
                 Err(error) => {
                     warn!(
-                        "Wasn't able to parse user `{}`'s given URL, `{video}`. Parse error: {error}",
+                        "Wasn't able to parse user `{}`'s given URL, `{link}`. Parse error: {error}",
                         author
                     );
 
@@ -164,10 +177,6 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
                     .await?;
                 }
             }
-
-            #[cfg(debug_assertions)]
-            bot.send_message(msg.chat.id, format!("The given video link was: `{video}`!"))
-                .await?;
         }
     };
 
