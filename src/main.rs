@@ -211,8 +211,47 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
                                     }
                                 }
                             } else {
-                                debug!("uhhh otherwise..!");
+                                debug!("too big..! uploading to external website...");
+
                                 // otherwise, upload to some site..?
+
+                                let client = Client::new();
+                                let website = format!(
+                                    "https://temp.sh/{}",
+                                    urlencoding::encode(dl.filename.as_str())
+                                );
+
+                                info!(
+                                    "Attempting to upload file {} to website `{website}`",
+                                    dl.path
+                                );
+
+                                let res =
+                                    dbg!(client.put(&website).body(dl.opened_file).send().await);
+
+                                match res {
+                                    Ok(link_response) => {
+                                        bot.send_message(
+                                            msg.chat.id,
+                                            format!(
+                                                "Upload successful! Here's your link: {}",
+                                                link_response.text().await?
+                                            ),
+                                        )
+                                        .await?;
+                                    }
+                                    Err(posting_error) => {
+                                        error!("Was unable to upload file `{}` to website `{website}`: {posting_error}", dl.path);
+
+                                        bot.edit_message_text(
+                                            msg.chat.id,
+                                            msg.id,
+                                            "Wasn't able to continue upload.",
+                                        )
+                                        .await?;
+                                    }
+                                }
+
                                 // - https://www.keep.sh: easy https 500mb upload. no account required
                                 // - https://temp.sh: easy https _4gb_ upload. no account required
                                 // - idk probably some others. magic wormhole would be a pain but works no matter the size /shrug
