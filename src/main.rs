@@ -2,8 +2,10 @@ use anyhow::{bail, Context, Result};
 use log::{debug, error, info, warn};
 use mime_guess::Mime;
 use not_so_human_panic::setup_panic;
+use reqwest::Client;
 use std::env;
 use teloxide::{prelude::*, types::InputFile, utils::command::BotCommands};
+use tokio::fs::File;
 use url::Url;
 use which::which;
 use youtube_dl::YoutubeDl;
@@ -57,10 +59,12 @@ async fn main() -> Result<(), anyhow::Error> {
 
 struct DownloadedFile {
     path: String,
+    opened_file: File,
     #[allow(unused)] // fields are used
     file: youtube_dl::SingleVideo,
     filesize: u64,
     filetype: Mime,
+    filename: String,
 }
 
 /// Downloads a given yt-dlp-compatible URL. Returns either some error,
@@ -98,11 +102,13 @@ async fn download(url: Url) -> Result<DownloadedFile, anyhow::Error> {
 
     Ok(DownloadedFile {
         path: path.clone(),
+        opened_file: File::open(&path).await?,
         file: video,
         filesize: std::fs::metadata(&path)?.len(),
         filetype: mime_guess::from_path(path)
             .first()
             .context("a file should have a filetype")?,
+        filename,
     })
 }
 
@@ -170,7 +176,7 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
                         valid_url.as_str()
                     );
 
-                    bot.send_message(msg.chat.id, "Downloading video...")
+                    bot.send_message(msg.chat.id, "Downloading video! This may take a moment...")
                         .await?;
 
                     match download(valid_url.clone()).await {
@@ -219,7 +225,12 @@ async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
                                 "The video that user `{author}` submitted failed to download: {dl_error}"
                             );
 
-                            bot.send_message(msg.chat.id, format!("The video link you gave, {valid_url}, failed to download. Please try again with another link.")).await?;
+                            // FIXME: youtube_dl lib has problems with unexpected link parts (i.e. https://www.youtube.com/watch?v=CDWHVRqhfto&t=930s)
+                            // see: https://github.com/GyrosOfWar/youtube-dl-rs/issues/49
+                            bot.send_message(msg.chat.id, format!("The video link you gave, {valid_url}, failed to download. \
+                                Please ensure that your link is \"cleaned,\" like removing timestamps in YouTube links. \
+                                Alternatively, try again with another link."))
+                                .await?;
                         }
                     }
                 }
